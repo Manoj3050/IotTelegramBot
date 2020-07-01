@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <comment>example pairs</comment>
+    <entry key="MQTT_HOST">tcp://52.59.206.100:1883</entry>
+    <entry key="MQTT_USER">debug</entry>
+    <entry key="MQTT_PASSWORD">anusha</entry>
+    <entry key="BOT_TOKEN">1112218327:AAGhJpMvAVObx-9VNNm5uvMq0iu4tKby-Wc</entry>
+    <entry key="BOT_USERNAME">Smart PID Bot</entry>
+    <entry key="DB_HOST">localhost</entry>
+    <entry key="DB_PORT">3308</entry>
+    <entry key="DB_USER">OTA</entry>
+    <entry key="DB_PASSWORD">zzYrJByEykjqoip0$</entry>
+    <entry key="DB_NAME">ARZAMAN_DB</entry>
+</properties>
