@@ -114,7 +114,7 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                     if (sqlConnection.isSerialExists(cmd_split[1])) {
                         //serial existing. subscribe to the device topic.
 
-                        if (sqlConnection.setChatIDForSerial(cmd_split[1], chatID) != 0) {
+                        if (sqlConnection.setChatIDForSerial(cmd_split[1], chatID,sqlConnection.getUserIDbyChatID(chatID)) != 0) {
                             //_mqttClient.subscribe("smartpidM5/mini/"+cmd_split[1]+"/dynamic");
                             //sqlConnection.setAlarmForSerialandChatID(cmd_split[1], chatID, true);
                             sendMessage("You have registered the device. Use /alarm on to turn on Alarms", chatID);
@@ -138,9 +138,12 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 if (cmd_split[1].equals("on")) {
                     List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
                     String messageToSend = "You have successfully activated alarms for ";
+                    
                     for (String device : devices) {
-                        sqlConnection.setAlarmForSerialandChatID(device,chatID,true);
-                        _mqttClient.subscribe("smartpidM5/mini/" + SerialNoHash(hexToByteData(device)) + "/dynamic");
+                        String deviceHash = SerialNoHash(hexToByteData(device));
+                        sqlConnection.setAlarmForSerialandChatID(device,chatID,true,deviceHash);
+                        _mqttClient.subscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
+                        _mqttClient.subscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
                         messageToSend += device + " , ";
                     }
                     sendMessage(messageToSend, chatID);
@@ -149,8 +152,10 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                     List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
                     String messageToSend = "You have successfully deactivated alarms for ";
                     for (String device : devices) {
-                         sqlConnection.setAlarmForSerialandChatID(device,chatID,false);
-                        _mqttClient.unsubscribe("smartpidM5/mini/" + SerialNoHash(hexToByteData(device)) + "/dynamic");
+                        String deviceHash = SerialNoHash(hexToByteData(device));
+                         sqlConnection.setAlarmForSerialandChatID(device,chatID,false,deviceHash);
+                        _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
+                        _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
                         messageToSend += device + " , ";
                     }
                     sendMessage(messageToSend, chatID);
@@ -159,6 +164,10 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                     sendMessage("Incorrect command for alram. Please check your command",chatID);
                 }
             }
+            else{
+                sendMessage("Incorrect command for alram. Please check your command",chatID);
+            }
+                
         }
     }
 
@@ -180,7 +189,8 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
             List<String> activeDeviceList = sqlConnection.getAllDevicesWithAlarm();
             System.out.println(activeDeviceList.toString());
             for (String device: activeDeviceList){
-                _mqttClient.subscribe("smartpidM5/mini/" + SerialNoHash(hexToByteData(device)) + "/dynamic");
+                _mqttClient.subscribe("smartpidM5/mini/" + SerialNoHash(hexToByteData(device)) + "/events/standard");
+                _mqttClient.subscribe("smartpidM5/mini/" + SerialNoHash(hexToByteData(device)) + "/events/advanced");
             }
         }
     }

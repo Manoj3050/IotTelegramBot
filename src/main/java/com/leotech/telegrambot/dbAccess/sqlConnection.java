@@ -40,10 +40,12 @@ public class sqlConnection {
     String username = DBvars.USERNAME;
     String password = DBvars.PASSWORD;
     String dbName = DBvars.DBNAME;
-    /*String host = "52.59.206.100";
-    String username = "OTA";
-    String password = "zzYrJByEykjqoip0$";
-    String dbName = "ARZAMAN_DB";*/
+    String dbport = DBvars.PORT;
+    /*String host = "localhost";
+    String username = "root";
+    String password = "";
+    String dbName = "arzaman_db";
+    String dbport = "3308";*/
 
     static boolean isConnected = false;
     private static GenericObjectPool gPool = null;
@@ -78,7 +80,7 @@ public class sqlConnection {
         gPool.setMaxActive(5);
 
         // Creates a ConnectionFactory Object Which Will Be Use by the Pool to Create the Connection Object!
-        ConnectionFactory cf = new DriverManagerConnectionFactory("jdbc:mysql://" + host + ":"+DBvars.PORT+"/" + dbName, username, password);
+        ConnectionFactory cf = new DriverManagerConnectionFactory("jdbc:mysql://" + host + ":" + dbport + "/" + dbName, username, password);
 
         // Creates a PoolableConnectionFactory That Will Wraps the Connection Object Created by the ConnectionFactory to Add Object Pooling Functionality!
         PoolableConnectionFactory pcf = new PoolableConnectionFactory(cf, gPool, null, null, false, true);
@@ -409,6 +411,44 @@ public class sqlConnection {
 
     }
 
+    public static String getUserIDbyChatID(Long chatID) {
+        String userID = null;
+        ResultSet rs = null;
+        PreparedStatement pstmt = null;
+        Connection conn = null;
+        String sql = "SELECT email FROM smartpid_users WHERE unique_id = (SELECT unique_id FROM telegram_bot WHERE chat_id = ?)";
+        try {
+            conn = dataSource.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setLong(1, chatID);
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                userID = rs.getString("email");
+            }
+
+        } catch (SQLException ex) {
+            Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                // Closing ResultSet Object
+                if (rs != null) {
+                    rs.close();
+                }
+                // Closing PreparedStatement Object
+                if (pstmt != null) {
+                    pstmt.close();
+                }
+                // Closing Connection Object
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (Exception sqlException) {
+                sqlException.printStackTrace();
+            }
+            return userID;
+        }
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //work on device_table
     public static boolean isSerialExists(String serialID) {
@@ -428,6 +468,7 @@ public class sqlConnection {
 
         } catch (SQLException ex) {
             Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println(ex);
         } finally {
             try {
                 // Closing ResultSet Object
@@ -455,7 +496,7 @@ public class sqlConnection {
         ResultSet rs = null;
         PreparedStatement pstmt = null;
         Connection conn = null;
-        String sql = "SELECT chat_id FROM device_table WHERE id_device = ?";
+        String sql = "SELECT chat_id FROM device_table WHERE device_hash = ?";
         try {
             conn = dataSource.getConnection();
             pstmt = conn.prepareStatement(sql);
@@ -467,6 +508,7 @@ public class sqlConnection {
 
         } catch (SQLException ex) {
             Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println(ex);
         } finally {
             try {
                 // Closing ResultSet Object
@@ -488,7 +530,7 @@ public class sqlConnection {
         }
     }
 
-    public static int setChatIDForSerial(String serialID, long chatID) {
+    public static int setChatIDForSerial(String serialID, long chatID, String userID) {
         int rsl = 0;
         ResultSet rs = null;
         PreparedStatement pstmt = null;
@@ -496,10 +538,11 @@ public class sqlConnection {
 
         try {
             conn = dataSource.getConnection();
-            PreparedStatement stmt = conn.prepareStatement("UPDATE device_table SET chat_id = ? WHERE id_device = ?");
+            PreparedStatement stmt = conn.prepareStatement("UPDATE device_table SET chat_id = ? WHERE id_device = ? AND mail = ?");
             stmt.setLong(1, chatID);
             stmt.setString(2, serialID);
-            rsl =  stmt.executeUpdate();
+            stmt.setString(3, userID);
+            rsl = stmt.executeUpdate();
         } catch (SQLException ex) {
             Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
@@ -522,8 +565,8 @@ public class sqlConnection {
             return rsl;
         }
     }
-    
-    public static int setAlarmForSerialandChatID(String serialID, long chatID, boolean alarm) {
+
+    public static int setAlarmForSerialandChatID(String serialID, long chatID, boolean alarm, String deviceHash) {
         int rsl = 0;
         ResultSet rs = null;
         PreparedStatement pstmt = null;
@@ -531,13 +574,15 @@ public class sqlConnection {
 
         try {
             conn = dataSource.getConnection();
-            PreparedStatement stmt = conn.prepareStatement("UPDATE device_table SET alarm_on = ? WHERE id_device = ? AND chat_id = ?");
+            PreparedStatement stmt = conn.prepareStatement("UPDATE device_table SET alarm_on = ? , device_hash = ? WHERE id_device = ? AND chat_id = ?");
             stmt.setBoolean(1, alarm);
-            stmt.setString(2, serialID);
-            stmt.setLong(3, chatID);
-            rsl =  stmt.executeUpdate();
+            stmt.setString(2, deviceHash);
+            stmt.setString(3, serialID);
+            stmt.setLong(4, chatID);
+            rsl = stmt.executeUpdate();
         } catch (SQLException ex) {
             Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println(ex);
         } finally {
             try {
                 // Closing ResultSet Object
@@ -558,8 +603,8 @@ public class sqlConnection {
             return rsl;
         }
     }
-    
-    public static List<String> getAllDevicesWithAlarm(){
+
+    public static List<String> getAllDevicesWithAlarm() {
         List<String> devices = new ArrayList<>();
         ResultSet rs = null;
         PreparedStatement pstmt = null;
@@ -593,13 +638,12 @@ public class sqlConnection {
             } catch (Exception sqlException) {
                 sqlException.printStackTrace();
             }
-            
+
         }
         return devices;
     }
-    
-    
-    public static List<String> getDevicesWithChatID(Long chatID){
+
+    public static List<String> getDevicesWithChatID(Long chatID) {
         List<String> devices = new ArrayList<>();
         ResultSet rs = null;
         PreparedStatement pstmt = null;
@@ -633,7 +677,7 @@ public class sqlConnection {
             } catch (Exception sqlException) {
                 sqlException.printStackTrace();
             }
-            
+
         }
         return devices;
     }
@@ -648,7 +692,5 @@ public class sqlConnection {
         String newHash = Base64.getEncoder().encodeToString(destination);
         return newHash.equals(encHash);
     }
-
-    
 
 }

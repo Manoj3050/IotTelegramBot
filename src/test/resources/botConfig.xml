@@ -8,8 +8,8 @@
     <entry key="BOT_TOKEN">1112218327:AAGhJpMvAVObx-9VNNm5uvMq0iu4tKby-Wc</entry>
     <entry key="BOT_USERNAME">Smart PID Bot</entry>
     <entry key="DB_HOST">localhost</entry>
-    <entry key="DB_PORT">3308</entry>
-    <entry key="DB_USER">OTA</entry>
+    <entry key="DB_PORT">3306</entry>
+    <entry key="DB_USER">root</entry>
     <entry key="DB_PASSWORD">zzYrJByEykjqoip0$</entry>
     <entry key="DB_NAME">ARZAMAN_DB</entry>
 </properties>

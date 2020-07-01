@@ -48,8 +48,8 @@ public class MqttThreadedListner implements IMqttMessageListener {
                     + "], Topic[ " + topic + "],  Message [" + message + "] ");
             String topic_split[] = topic.split("/");
             if (topic_split.length > 3) {
-                String deviceSerialID = topic_split[2];
-                Long getChatIDToSend = sqlConnection.getChatID(deviceSerialID);
+                String deviceSerialIDHash = topic_split[2];
+                Long getChatIDToSend = sqlConnection.getChatID(deviceSerialIDHash);
                 if (getChatIDToSend != 0) {
                     SendMessage updateMessage = new SendMessage();
                     updateMessage.setChatId(getChatIDToSend);
