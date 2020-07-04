@@ -448,9 +448,45 @@ public class sqlConnection {
             return userID;
         }
     }
+    
+    public static int removeUser(Long chatID){
+        int rsl = 0;
+        ResultSet rs = null;
+        PreparedStatement pstmt = null;
+        Connection conn = null;
+        String sql = "DELETE FROM telegram_bot WHERE chat_id = ?";
+
+        try {
+            conn = dataSource.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setLong(1, chatID);
+            rsl = pstmt.executeUpdate();
+        } catch (SQLException ex) {
+            Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                // Closing ResultSet Object
+                if (rs != null) {
+                    rs.close();
+                }
+                // Closing PreparedStatement Object
+                if (pstmt != null) {
+                    pstmt.close();
+                }
+                // Closing Connection Object
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (Exception sqlException) {
+                sqlException.printStackTrace();
+            }
+        }
+        return rsl;
+    }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //work on device_table
+    
     public static boolean isSerialExists(String serialID) {
         boolean rsl = false;
         ResultSet rs = null;
@@ -491,19 +527,21 @@ public class sqlConnection {
 
     }
 
-    public static Long getChatID(String serialID) {
-        long rsl = 0;
+    public static chatIDDeviceComb getChatID(String serialID) {
+        chatIDDeviceComb returnVal = new chatIDDeviceComb();
+
         ResultSet rs = null;
         PreparedStatement pstmt = null;
         Connection conn = null;
-        String sql = "SELECT chat_id FROM device_table WHERE device_hash = ?";
+        String sql = "SELECT chat_id,id_device FROM device_table WHERE device_hash = ?";
         try {
             conn = dataSource.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, serialID);
             rs = pstmt.executeQuery();
             if (rs.next()) {
-                rsl = rs.getLong("chat_id");
+                returnVal._chatID = rs.getLong("chat_id");
+                returnVal._deviceID = rs.getString("id_device");
             }
 
         } catch (SQLException ex) {
@@ -526,7 +564,7 @@ public class sqlConnection {
             } catch (Exception sqlException) {
                 sqlException.printStackTrace();
             }
-            return rsl;
+            return returnVal;
         }
     }
 
@@ -692,5 +730,6 @@ public class sqlConnection {
         String newHash = Base64.getEncoder().encodeToString(destination);
         return newHash.equals(encHash);
     }
+
 
 }

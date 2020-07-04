@@ -8,6 +8,7 @@ package com.leotech.telegrambot.iotdevice;
 import com.leotech.telegrambot.bot.TelegramBot;
 import com.leotech.telegrambot.dbAccess.sqlConnection;
 import com.leotech.smartpid.updateHandler;
+import com.leotech.telegrambot.dbAccess.chatIDDeviceComb;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -16,6 +17,7 @@ import org.eclipse.paho.client.mqttv3.IMqttMessageListener;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.json.*;
 
 /**
  *
@@ -49,15 +51,20 @@ public class MqttThreadedListner implements IMqttMessageListener {
             String topic_split[] = topic.split("/");
             if (topic_split.length > 3) {
                 String deviceSerialIDHash = topic_split[2];
-                Long getChatIDToSend = sqlConnection.getChatID(deviceSerialIDHash);
-                if (getChatIDToSend != 0) {
-                    SendMessage updateMessage = new SendMessage();
-                    updateMessage.setChatId(getChatIDToSend);
-                    updateMessage.setText(new String(message.getPayload()));
-                    try {
-                        bot.execute(updateMessage);
-                    } catch (TelegramApiException ex) {
-                        Logger.getLogger(updateHandler.class.getName()).log(Level.SEVERE, null, ex);
+                chatIDDeviceComb getChatIDToSend = sqlConnection.getChatID(deviceSerialIDHash);
+                if (getChatIDToSend._chatID != 0) {
+                    if (topic.contains("events")) {
+                        SendMessage updateMessage = new SendMessage();
+                        updateMessage.setChatId(getChatIDToSend._chatID);
+                        JSONObject obj = new JSONObject(new String(message.getPayload()));
+                        String messageToSend = "";
+                        messageToSend = "Device " + getChatIDToSend._deviceID + " " + obj.getJSONObject("event");
+                        updateMessage.setText(messageToSend);
+                        try {
+                            bot.execute(updateMessage);
+                        } catch (TelegramApiException ex) {
+                            Logger.getLogger(updateHandler.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
                 }
             }
@@ -66,7 +73,7 @@ public class MqttThreadedListner implements IMqttMessageListener {
 
     @Override
     public void messageArrived(String topic, MqttMessage message) throws Exception {
-        Logger.getLogger(MqttThreadedListner.class.getName()).log(Level.INFO,"Message received. : " + message);
+        Logger.getLogger(MqttThreadedListner.class.getName()).log(Level.INFO, "Message received. : " + message);
         System.out.println("Message received. : " + message);
         pool.execute(new MessageHandler(topic, message));
     }

@@ -10,9 +10,9 @@ package com.leotech.telegrambot.dbAccess;
  * @author Anusha
  */
 public class DBvars {
-    public static String HOST = "localhost";
-    public static String PORT = "3308";
-    public static String USERNAME = "root";
-    public static String PASSWORD = "";
-    public static String DBNAME = "arzaman_db";
+    public static String HOST = "52.59.206.100";
+    public static String PORT = "3306";
+    public static String USERNAME = "TELEGRAM";
+    public static String PASSWORD = "et7bpAKIh11bWy4m$";
+    public static String DBNAME = "ARZAMAN_DB";
 }

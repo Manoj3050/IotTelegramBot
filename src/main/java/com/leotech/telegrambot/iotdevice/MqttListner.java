@@ -21,13 +21,12 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
  *
  * @author Anusha
  */
-public class MqttListner implements MqttCallback{
-    
+public class MqttListner implements MqttCallback {
+
     private MqttAsyncClient client = null;
     private TelegramBot bot = null;
-    
-    
-    public MqttListner(TelegramBot b){
+
+    public MqttListner(TelegramBot b) {
         try {
             client = new MqttAsyncClient(MqttVars.MQTT_HOST, MqttVars.MQTT_CLIENT_ID);
             MqttConnectOptions connOpts = setUpConnectionOptions(MqttVars.MQTT_USER, MqttVars.MQTT_PASSWORD);
@@ -40,52 +39,49 @@ public class MqttListner implements MqttCallback{
         } catch (MqttException e) {
             e.printStackTrace();
         }
-        while(client.isConnected() == false){}
+        while (client.isConnected() == false) {
+        }
         this.bot = b;
     }
-    
-    private  MqttConnectOptions setUpConnectionOptions(String username, String password) {
-       MqttConnectOptions connOpts = new MqttConnectOptions();
-       connOpts.setCleanSession(true);
-       connOpts.setUserName(username);
-       connOpts.setPassword(password.toCharArray());
-       return connOpts;
-   }  
+
+    private MqttConnectOptions setUpConnectionOptions(String username, String password) {
+        MqttConnectOptions connOpts = new MqttConnectOptions();
+        connOpts.setCleanSession(true);
+        connOpts.setUserName(username);
+        connOpts.setPassword(password.toCharArray());
+        return connOpts;
+    }
 
     @Override
     public void connectionLost(Throwable thrwbl) {
-        
+
     }
 
     @Override
     public void messageArrived(String topic, MqttMessage mm) throws Exception {
         String message = new String(mm.getPayload());
-        new updateHandler(topic,message,bot).run();
+        new updateHandler(topic, message, bot).run();
     }
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken imdt) {
-        
+
     }
-    
-    public void subscribe(String topic){
-        try {
-            client.subscribe(topic,0,new MqttThreadedListner(bot));
-            Logger.getLogger(MqttListner.class.getName()).log(Level.INFO, "Subscribed to topic: "+ topic);
-            System.out.println("Subscribed to topic: "+ topic);
-        } catch (MqttException ex) {
-            Logger.getLogger(MqttListner.class.getName()).log(Level.SEVERE, null, ex);
-        }
+
+    public void subscribe(String topic) throws MqttException {
+
+        client.subscribe(topic, 0, new MqttThreadedListner(bot));
+        Logger.getLogger(MqttListner.class.getName()).log(Level.INFO, "Subscribed to topic: " + topic);
+        System.out.println("Subscribed to topic: " + topic);
+
     }
-    
-    public void unsubscribe(String topic){
-        try {
-            client.unsubscribe(topic);
-            Logger.getLogger(MqttListner.class.getName()).log(Level.INFO,"Unsubscribed from topic: "+ topic);
-            System.out.println("Unsubscribed from topic: "+ topic);
-        } catch (MqttException ex) {
-            Logger.getLogger(MqttListner.class.getName()).log(Level.SEVERE, null, ex);
-        }
+
+    public void unsubscribe(String topic) throws MqttException {
+
+        client.unsubscribe(topic);
+        Logger.getLogger(MqttListner.class.getName()).log(Level.INFO, "Unsubscribed from topic: " + topic);
+        System.out.println("Unsubscribed from topic: " + topic);
+
     }
-    
+
 }

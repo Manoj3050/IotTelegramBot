@@ -6,6 +6,7 @@
 package com.leotech.smartpid;
 
 import com.leotech.telegrambot.bot.TelegramBot;
+import com.leotech.telegrambot.dbAccess.chatIDDeviceComb;
 import com.leotech.telegrambot.dbAccess.sqlConnection;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,10 +33,10 @@ public class updateHandler implements Runnable{
         String topic_split[] = _topic.split("/");
         if(topic_split.length > 3){
             String deviceSerialID = topic_split[2];
-            Long getChatIDToSend = sqlConnection.getChatID(deviceSerialID);
-            if(getChatIDToSend != 0){
+            chatIDDeviceComb getChatIDToSend = sqlConnection.getChatID(deviceSerialID);
+            if(getChatIDToSend._chatID != 0){
                 SendMessage updateMessage = new SendMessage();
-                updateMessage.setChatId(getChatIDToSend);
+                updateMessage.setChatId(getChatIDToSend._chatID);
                 updateMessage.setText(_message);
                 try {
                     _bot.execute(updateMessage);
