@@ -7,10 +7,19 @@ package com.leotech.telegrambot.bot;
 
 import com.leotech.telegrambot.dbAccess.sqlConnection;
 import com.leotech.telegrambot.iotdevice.MqttListner;
+import com.leotech.telegrambot.iotdevice.MqttVars;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.eclipse.paho.client.mqttv3.IMqttActionListener;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.IMqttToken;
+import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.json.JSONObject;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -62,7 +71,7 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 //ask user to send the username via /usr command
                 sendMessage("Welcome to Smart PID service. Please enter your email address using /usr command.", chatID);
             }
-        } else if (message.startsWith("/usr")) {
+        } else if (message.startsWith("/user")) {
             String cmd_split[] = message.split(" ");
             if (cmd_split.length == 2) {
                 //this is a deep linked registration. Get the unique_id and try to register the user
@@ -147,7 +156,7 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 }
             } else if (cmd_split.length == 3) {
                 //remove device command
-                if (cmd_split[2] == "off") {
+                if (cmd_split[2].equals("off")) {
                     removeDevice(cmd_split[1], chatID, true);
 
                 }
@@ -181,12 +190,14 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                     for (String device : devices) {
                         String deviceHash = SerialNoHash(device);
                         sqlConnection.setAlarmForSerialandChatID(device, chatID, false, deviceHash);
-                        try {
-                            _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
-                            _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
-                        } catch (MqttException ex) {
-                            Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
-                            sendMessage("An error occured. Please contact your service provider", chatID);
+                        if (sqlConnection.isGoodtoUnsubscribeMQTT(device)) {
+                            try {
+                                _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
+                                _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
+                            } catch (MqttException ex) {
+                                Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                                sendMessage("An error occured. Please contact your service provider", chatID);
+                            }
                         }
                         messageToSend += device + " , ";
                     }
@@ -197,6 +208,35 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
             } else {
                 sendMessage("Incorrect command for alram. Please check your command", chatID);
             }
+        } else if (message.startsWith("/data")) {
+            String cmd_split[] = message.trim().split(" ");
+            if (cmd_split.length == 2) {
+                List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
+                if (devices.contains(cmd_split[1])) {
+                    new Thread(new dynamicCMDHandler(cmd_split[1], chatID)).start();
+                }
+            } else if (cmd_split.length == 1) {
+                List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
+                for (String device : devices) {
+                    new Thread(new dynamicCMDHandler(device, chatID)).start();
+                }
+            } else {
+                sendMessage("Incorrec command for data. Please check your command", chatID);
+            }
+        } else if (message.startsWith("/help")) {
+            String messagetoSend = "Available Commands are\n";
+            messagetoSend += "/start - Will help you get started\n";
+            messagetoSend += "/user - Use this along with username, ex to Subscribe /user myusername, to unsubscribe /user myusername unsibscribe\n";
+            messagetoSend += "/pwd - To Enter password\n";
+            messagetoSend += "/serial - To enable/disable a device. Ex to enable /serial deviceid, to disable /serial deviceid off\n";
+            messagetoSend += "/alarm - To enable/disable alarms for enabled devices. Ex to enable /alarm on, to disable /alamrm off\n";
+            messagetoSend += "/data - To display current device status. Ex to get status of all enabled devices use /data.\n"
+                    + "To get status of specific device, use /data deviceid\n";
+            messagetoSend += "/help - Display this help\n";
+            sendMessage(messagetoSend, chatID);
+        } else {
+            sendMessage("Wrong Command", chatID);
+
         }
     }
 
@@ -221,15 +261,18 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 if (sqlConnection.setAlarmForSerialandChatID(deviceID, chatID, false, deviceHash) != 0) {
                     //set chatID for that serial  as 0
                     if (sqlConnection.setChatIDForSerial(deviceID, 0, sqlConnection.getUserIDbyChatID(chatID)) != 0) {
-                        try {
-                            _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
-                            _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
-                            if (sendMsg) {
-                                sendMessage("You have successfully removed device " + deviceID, chatID);
+                        if (sqlConnection.isGoodtoUnsubscribeMQTT(deviceID)) {
+                            try {
+                                _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
+                                _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
+
+                            } catch (MqttException ex) {
+                                Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                                sendMessage("An error occured. Please contact your service provider", chatID);
                             }
-                        } catch (MqttException ex) {
-                            Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
-                            sendMessage("An error occured. Please contact your service provider", chatID);
+                        }
+                        if (sendMsg) {
+                            sendMessage("You have successfully removed device " + deviceID, chatID);
                         }
                     } else {
                         sendMessage("An error occured. Please contact your service provider", chatID);
@@ -312,6 +355,155 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
             count++;
         }
         return convertedByteArray;
+    }
+
+    private class dynamicCMDHandler implements Runnable, MqttCallback, IMqttActionListener {
+
+        protected String deviceID;
+        protected Long dynamicchatID;
+
+        MqttAsyncClient mqttClient_dynamic;
+
+        private boolean statusReceived;
+        private int counter;
+
+        protected dynamicCMDHandler(String device, Long chatID) {
+            deviceID = device;
+            dynamicchatID = chatID;
+            statusReceived = false;
+            counter = 0;
+            try {
+                mqttClient_dynamic = new MqttAsyncClient(MqttVars.MQTT_HOST, MqttVars.MQTT_CLIENT_ID + SerialNoHash(deviceID));
+                MqttConnectOptions connOpts = setUpConnectionOptions(MqttVars.MQTT_USER, MqttVars.MQTT_PASSWORD);
+                mqttClient_dynamic.connect(connOpts);
+                while (mqttClient_dynamic.isConnected() == false) {
+
+                }
+                mqttClient_dynamic.setCallback(this);
+                try {
+                    mqttClient_dynamic.subscribe("smartpidM5/mini/" + SerialNoHash(deviceID) + "/dynamic", 0);
+                    MqttMessage message = new MqttMessage();
+                    message.setPayload("{}".getBytes());
+                    mqttClient_dynamic.publish("smartpidM5/mini/" + SerialNoHash(deviceID) + "/dynamic", message);
+                } catch (MqttException ex) {
+                    Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            } catch (MqttException ex) {
+                Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+
+        private MqttConnectOptions setUpConnectionOptions(String username, String password) {
+            MqttConnectOptions connOpts = new MqttConnectOptions();
+            connOpts.setCleanSession(true);
+            connOpts.setUserName(username);
+            connOpts.setPassword(password.toCharArray());
+            return connOpts;
+        }
+
+        @Override
+        public void run() {
+            synchronized (this) {
+                while (statusReceived == false) {
+                    try {
+                        wait();
+                    } catch (InterruptedException ex) {
+                        Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+
+            try {
+                mqttClient_dynamic.unsubscribe("smartpidM5/mini/" + SerialNoHash(deviceID) + "/dynamic");
+                mqttClient_dynamic.disconnect();
+            } catch (MqttException ex) {
+                Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            System.out.println("Done");
+
+        }
+
+        @Override
+        public void connectionLost(Throwable thrwbl) {
+
+        }
+
+        @Override
+        public void messageArrived(String string, MqttMessage mm) throws Exception {
+            counter++;
+
+            if (counter == 2) {
+                JSONObject obj = new JSONObject(new String(mm.getPayload()));
+                /*
+            {
+                "time": <timestamp>,
+                "SP": <temp>, // only in heating/cooling/thermostatic mode
+                "temp": <temp>, // only in heating/cooling/thermostatic mode
+                "unit": <unit>, // only in heating/cooling/thermostatic mode
+                "RH SP": <rh>, // only in humidify/dehumidify/hygrostatic mode
+                "humidity": <rh>, // only in humidify/dehumidify/hygrostatic mode
+                "mode": <mode>,
+                "relay": <relay>,
+                "runmode" :<run>
+            }
+            
+                 */
+                String messageToSend = "";
+                messageToSend = "Device " + deviceID + "\nTime:";
+                messageToSend += obj.optString("time");
+                if (obj.optString("SP").isEmpty() == false) {
+                    messageToSend += "\nSP : " + obj.optString("SP");
+                }
+                if (obj.optString("temp").isEmpty() == false) {
+                    messageToSend += "\ntemp : " + obj.optString("temp");
+                }
+                if (obj.optString("unit").isEmpty() == false) {
+                    messageToSend += "\nunit : " + obj.optString("unit");
+                }
+                if (obj.optString("RH SP").isEmpty() == false) {
+                    messageToSend += "\nRH SP : " + obj.optString("RH SP");
+                }
+                if (obj.optString("humidity").isEmpty() == false) {
+                    messageToSend += "\nhumidity : " + obj.optString("humidity");
+                }
+                if (obj.optString("mode").isEmpty() == false) {
+                    messageToSend += "\nmode : " + obj.optString("mode");
+                }
+                if (obj.optString("relay").isEmpty() == false) {
+                    messageToSend += "\nrelay : " + obj.optString("relay");
+                }
+                if (obj.optString("runmode").isEmpty() == false) {
+                    messageToSend += "\nrunmode : " + obj.optString("runmode");
+                }
+
+                sendMessage(messageToSend, dynamicchatID);
+                statusReceived = true;
+
+            }
+            synchronized (this) {
+                notify();
+            }
+
+        }
+
+        @Override
+        public void deliveryComplete(IMqttDeliveryToken imdt) {
+
+        }
+
+        @Override
+        public void onSuccess(IMqttToken imt) {
+            System.out.println("Connected " + mqttClient_dynamic.getClientId());
+
+        }
+
+        @Override
+        public void onFailure(IMqttToken imt, Throwable thrwbl) {
+
+        }
+
     }
 
 }

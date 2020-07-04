@@ -6,7 +6,6 @@
 package com.leotech.telegrambot.iotdevice;
 
 import com.leotech.telegrambot.bot.TelegramBot;
-import com.leotech.smartpid.updateHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -32,10 +31,6 @@ public class MqttListner implements MqttCallback {
             MqttConnectOptions connOpts = setUpConnectionOptions(MqttVars.MQTT_USER, MqttVars.MQTT_PASSWORD);
             client.connect(connOpts);
             client.setCallback(this);
-            /*MqttMessage message = new MqttMessage();
-            message.setPayload("A single message from my computer fff"
-                    .getBytes());
-            client.publish("foo", message);*/
         } catch (MqttException e) {
             e.printStackTrace();
         }
@@ -60,7 +55,6 @@ public class MqttListner implements MqttCallback {
     @Override
     public void messageArrived(String topic, MqttMessage mm) throws Exception {
         String message = new String(mm.getPayload());
-        new updateHandler(topic, message, bot).run();
     }
 
     @Override

@@ -527,21 +527,24 @@ public class sqlConnection {
 
     }
 
-    public static chatIDDeviceComb getChatID(String serialID) {
-        chatIDDeviceComb returnVal = new chatIDDeviceComb();
+    public static List getChatID(String serialID) {
+        List concernedUsers = new ArrayList<chatIDDeviceComb>();
+        
 
         ResultSet rs = null;
         PreparedStatement pstmt = null;
         Connection conn = null;
-        String sql = "SELECT chat_id,id_device FROM device_table WHERE device_hash = ? AND alarm_on = 1";
+        String sql = "SELECT chat_id,name FROM device_table WHERE device_hash = ? AND alarm_on = 1";
         try {
             conn = dataSource.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, serialID);
             rs = pstmt.executeQuery();
-            if (rs.next()) {
+            while (rs.next()) {
+                chatIDDeviceComb returnVal = new chatIDDeviceComb();
                 returnVal._chatID = rs.getLong("chat_id");
-                returnVal._deviceID = rs.getString("id_device");
+                returnVal._deviceID = rs.getString("name");
+                concernedUsers.add(returnVal);
             }
 
         } catch (SQLException ex) {
@@ -564,7 +567,7 @@ public class sqlConnection {
             } catch (Exception sqlException) {
                 sqlException.printStackTrace();
             }
-            return returnVal;
+            return concernedUsers;
         }
     }
 
@@ -718,6 +721,46 @@ public class sqlConnection {
 
         }
         return devices;
+    }
+    
+    public static boolean isGoodtoUnsubscribeMQTT(String deviceID) {
+        boolean rsl = true;
+        ResultSet rs = null;
+        PreparedStatement pstmt = null;
+        Connection conn = null;
+        String sql = "SELECT chat_id FROM device_table WHERE id_device = ? AND alarm_on = ?";
+        try {
+            conn = dataSource.getConnection();
+            pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, deviceID);
+            pstmt.setBoolean(2, true);
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                rsl = false;
+            }
+
+        } catch (SQLException ex) {
+            Logger.getLogger(sqlConnection.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                // Closing ResultSet Object
+                if (rs != null) {
+                    rs.close();
+                }
+                // Closing PreparedStatement Object
+                if (pstmt != null) {
+                    pstmt.close();
+                }
+                // Closing Connection Object
+                if (conn != null) {
+                    conn.close();
+                }
+            } catch (Exception sqlException) {
+                sqlException.printStackTrace();
+            }
+
+        }
+        return rsl;
     }
 
     private static boolean checkHash(String password, String encHash, String salt) {
