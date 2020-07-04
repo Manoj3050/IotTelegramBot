@@ -533,7 +533,7 @@ public class sqlConnection {
         ResultSet rs = null;
         PreparedStatement pstmt = null;
         Connection conn = null;
-        String sql = "SELECT chat_id,id_device FROM device_table WHERE device_hash = ?";
+        String sql = "SELECT chat_id,id_device FROM device_table WHERE device_hash = ? AND alarm_on = 1";
         try {
             conn = dataSource.getConnection();
             pstmt = conn.prepareStatement(sql);

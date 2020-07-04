@@ -51,14 +51,15 @@ public class MqttThreadedListner implements IMqttMessageListener {
             String topic_split[] = topic.split("/");
             if (topic_split.length > 3) {
                 String deviceSerialIDHash = topic_split[2];
-                chatIDDeviceComb getChatIDToSend = sqlConnection.getChatID(deviceSerialIDHash);
+                chatIDDeviceComb getChatIDToSend = sqlConnection.getChatID(deviceSerialIDHash);;
                 if (getChatIDToSend._chatID != 0) {
+                    
                     if (topic.contains("events")) {
                         SendMessage updateMessage = new SendMessage();
                         updateMessage.setChatId(getChatIDToSend._chatID);
                         JSONObject obj = new JSONObject(new String(message.getPayload()));
                         String messageToSend = "";
-                        messageToSend = "Device " + getChatIDToSend._deviceID + " " + obj.getJSONObject("event");
+                        messageToSend = "Device " + getChatIDToSend._deviceID + " " + obj.getString("event");
                         updateMessage.setText(messageToSend);
                         try {
                             bot.execute(updateMessage);
