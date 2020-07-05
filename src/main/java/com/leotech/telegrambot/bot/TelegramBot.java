@@ -9,6 +9,7 @@ import com.leotech.telegrambot.dbAccess.sqlConnection;
 import com.leotech.telegrambot.iotdevice.MqttListner;
 import com.leotech.telegrambot.iotdevice.MqttVars;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -69,7 +70,7 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 }
             } else {
                 //ask user to send the username via /usr command
-                sendMessage("Welcome to Smart PID service. Please enter your email address using /usr command.", chatID);
+                sendMessage("Welcome to Smart PID service. Please enter your email address using /user command.", chatID);
             }
         } else if (message.startsWith("/user")) {
             String cmd_split[] = message.split(" ");
@@ -221,17 +222,17 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                     new Thread(new dynamicCMDHandler(device, chatID)).start();
                 }
             } else {
-                sendMessage("Incorrec command for data. Please check your command", chatID);
+                sendMessage("Incorrect command for data. Please check your command", chatID);
             }
         } else if (message.startsWith("/help")) {
             String messagetoSend = "Available Commands are\n";
             messagetoSend += "/start - Will help you get started\n";
             messagetoSend += "/user - Use this along with username, ex to Subscribe /user myusername, to unsubscribe /user myusername unsibscribe\n";
             messagetoSend += "/pwd - To Enter password\n";
-            messagetoSend += "/serial - To enable/disable a device. Ex to enable /serial deviceid, to disable /serial deviceid off\n";
+            messagetoSend += "/serial - To enable/disable a device. Ex to enable /serial device_ID, to disable /serial device_ID off\n";
             messagetoSend += "/alarm - To enable/disable alarms for enabled devices. Ex to enable /alarm on, to disable /alamrm off\n";
             messagetoSend += "/data - To display current device status. Ex to get status of all enabled devices use /data.\n"
-                    + "To get status of specific device, use /data deviceid\n";
+                    + "To get status of specific device, use /data device_ID\n";
             messagetoSend += "/help - Display this help\n";
             sendMessage(messagetoSend, chatID);
         } else {
@@ -421,7 +422,6 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
             } catch (MqttException ex) {
                 Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
             }
-            System.out.println("Done");
 
         }
 
@@ -452,7 +452,17 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                  */
                 String messageToSend = "";
                 messageToSend = "Device " + deviceID + "\nTime:";
-                messageToSend += obj.optString("time");
+                String time = obj.optString("time");
+                if (time.isEmpty() == false) {
+                    long millis;
+                    millis = Long.parseLong(time);
+                    long hours =  TimeUnit.MILLISECONDS.toHours(millis);
+                    long mins =  TimeUnit.MILLISECONDS.toMinutes(millis)  - TimeUnit.MILLISECONDS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis));
+                    long secs = TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(mins) - TimeUnit.MINUTES.toSeconds(hours);
+                    messageToSend += String.format("%02d:%02d:%02d",
+                            hours,mins,secs
+                    );
+                }
                 if (obj.optString("SP").isEmpty() == false) {
                     messageToSend += "\nSP : " + obj.optString("SP");
                 }
