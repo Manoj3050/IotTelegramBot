@@ -9,7 +9,12 @@ import com.leotech.telegrambot.dbAccess.sqlConnection;
 import com.leotech.telegrambot.iotdevice.MqttListner;
 import com.leotech.telegrambot.iotdevice.MqttVars;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
@@ -171,20 +176,25 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 if (cmd_split[1].equals("on")) {
                     List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
                     String messageToSend = "You have successfully activated alarms for ";
-
-                    for (String device : devices) {
+                    String topics[] = new String[devices.size() * 2];
+                    for (int i = 0; i < devices.size(); i++) {
+                        String device = new String(devices.get(i));
                         String deviceHash = SerialNoHash(device);
                         sqlConnection.setAlarmForSerialandChatID(device, chatID, true, deviceHash);
-                        try {
-                            _mqttClient.subscribe("smartpidM5/mini/" + deviceHash + "/events/standard");
-                            _mqttClient.subscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
-                        } catch (MqttException ex) {
-                            Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
-                            sendMessage("An error occured. Please contact your service provider", chatID);
-                        }
+                        topics[i * 2] = "smartpidM5/mini/" + deviceHash + "/events/standard";
+                        topics[i * 2 + 1] = "smartpidM5/mini/" + deviceHash + "/events/advanced";
                         messageToSend += device + " , ";
                     }
-                    sendMessage(messageToSend, chatID);
+                    try {
+                        _mqttClient.subscribe(topics);
+                    } catch (MqttException ex) {
+                        Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                        System.out.println(ex);
+                        sendMessage("An error occured. Please contact your service provider", chatID);
+                    } finally {
+                        sendMessage(messageToSend, chatID);
+                    }
+
                 } else if (cmd_split[1].equals("off")) {
                     List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
                     String messageToSend = "You have successfully deactivated alarms for ";
@@ -197,6 +207,7 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                                 _mqttClient.unsubscribe("smartpidM5/mini/" + deviceHash + "/events/advanced");
                             } catch (MqttException ex) {
                                 Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                                System.out.println(ex);
                                 sendMessage("An error occured. Please contact your service provider", chatID);
                             }
                         }
@@ -219,7 +230,24 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
             } else if (cmd_split.length == 1) {
                 List<String> devices = sqlConnection.getDevicesWithChatID(chatID);
                 for (String device : devices) {
-                    new Thread(new dynamicCMDHandler(device, chatID)).start();
+                    dynamicCMDHandler handler = new dynamicCMDHandler(device, chatID);
+                    ExecutorService executor = Executors.newSingleThreadExecutor();
+                    Future<?> future = executor.submit(handler);
+
+                    try {
+                        Object result = future.get(60000, TimeUnit.MILLISECONDS);
+                        System.out.println("Completed successfully");
+                    } catch (InterruptedException e) {
+                        System.out.println(e);
+                    } catch (ExecutionException e) {
+                        System.out.println(e);
+                    } catch (TimeoutException e) {
+                        System.out.println("Timed out. Cancelling the runnable...");
+                        future.cancel(true);
+                    }
+
+                    executor.shutdown();
+                    
                 }
             } else {
                 sendMessage("Incorrect command for data. Please check your command", chatID);
@@ -294,15 +322,21 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
             _mqttClient = client;
             List<String> activeDeviceList = sqlConnection.getAllDevicesWithAlarm();
             System.out.println(activeDeviceList.toString());
-            for (String device : activeDeviceList) {
-                try {
-                    _mqttClient.subscribe("smartpidM5/mini/" + SerialNoHash(device) + "/events/standard");
-                    _mqttClient.subscribe("smartpidM5/mini/" + SerialNoHash(device) + "/events/advanced");
-                } catch (MqttException ex) {
-                    Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
-                }
 
+            String topics[] = new String[activeDeviceList.size() * 2];
+            for (int i = 0; i < activeDeviceList.size(); i++) {
+                String device = new String(activeDeviceList.get(i));
+                String deviceHash = SerialNoHash(device);
+                topics[i * 2] = "smartpidM5/mini/" + deviceHash + "/events/standard";
+                topics[i * 2 + 1] = "smartpidM5/mini/" + deviceHash + "/events/advanced";
             }
+            try {
+                _mqttClient.subscribe(topics);
+
+            } catch (MqttException ex) {
+                Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
         }
     }
 
@@ -411,7 +445,8 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                     try {
                         wait();
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(TelegramBot.class.getName()).log(Level.SEVERE, null, ex);
+                        System.out.println(ex);
+                        sendMessage("Timedout. Please check the device if it is online", dynamicchatID);
                     }
                 }
             }
@@ -456,11 +491,11 @@ public class TelegramBot extends org.telegram.telegrambots.bots.TelegramLongPoll
                 if (time.isEmpty() == false) {
                     long millis;
                     millis = Long.parseLong(time);
-                    long hours =  TimeUnit.MILLISECONDS.toHours(millis);
-                    long mins =  TimeUnit.MILLISECONDS.toMinutes(millis)  - TimeUnit.MILLISECONDS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis));
+                    long hours = TimeUnit.MILLISECONDS.toHours(millis);
+                    long mins = TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.MILLISECONDS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis));
                     long secs = TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(mins) - TimeUnit.MINUTES.toSeconds(hours);
                     messageToSend += String.format("%02d:%02d:%02d",
-                            hours,mins,secs
+                            hours, mins, secs
                     );
                 }
                 if (obj.optString("SP").isEmpty() == false) {

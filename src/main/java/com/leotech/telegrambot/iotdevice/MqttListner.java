@@ -6,8 +6,10 @@
 package com.leotech.telegrambot.iotdevice;
 
 import com.leotech.telegrambot.bot.TelegramBot;
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Stream;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttAsyncClient;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
@@ -62,11 +64,14 @@ public class MqttListner implements MqttCallback {
 
     }
 
-    public void subscribe(String topic) throws MqttException {
-
-        client.subscribe(topic, 0, new MqttThreadedListner(bot));
+    public void subscribe(String [] topic) throws MqttException {
+        
+        MqttThreadedListner [] listenrs = Stream.generate(() -> new MqttThreadedListner(bot)).limit(topic.length).toArray(MqttThreadedListner[]::new);
+        int qos[] = new int[topic.length];
+        Arrays.fill(qos, 0);
+        client.subscribe(topic, qos, listenrs);
         Logger.getLogger(MqttListner.class.getName()).log(Level.INFO, "Subscribed to topic: " + topic);
-        System.out.println("Subscribed to topic: " + topic);
+        System.out.println("Subscribed to topic: " + Arrays.toString(topic));
 
     }
 
@@ -74,7 +79,7 @@ public class MqttListner implements MqttCallback {
 
         client.unsubscribe(topic);
         Logger.getLogger(MqttListner.class.getName()).log(Level.INFO, "Unsubscribed from topic: " + topic);
-        System.out.println("Unsubscribed from topic: " + topic);
+        System.out.println("Unsubscribed from topic: " + topic.toString());
 
     }
 
