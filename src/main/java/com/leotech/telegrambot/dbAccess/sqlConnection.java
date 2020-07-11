@@ -21,6 +21,8 @@ import com.leotech.telegrambot.dbAccess.*;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import javax.sql.DataSource;
 import org.apache.commons.codec.cli.Digest;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -684,19 +686,19 @@ public class sqlConnection {
         return devices;
     }
 
-    public static List<String> getDevicesWithChatID(Long chatID) {
-        List<String> devices = new ArrayList<>();
+    public static Map<String,Integer> getDevicesWithChatID(Long chatID) {
+        Map<String,Integer> devices = new HashMap<String, Integer>();
         ResultSet rs = null;
         PreparedStatement pstmt = null;
         Connection conn = null;
-        String sql = "SELECT id_device FROM device_table WHERE chat_id = ?";
+        String sql = "SELECT id_device,device_type FROM device_table WHERE chat_id = ?";
         try {
             conn = dataSource.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setLong(1, chatID);
             rs = pstmt.executeQuery();
             while (rs.next()) {
-                devices.add(rs.getString("id_device"));
+                devices.put(rs.getString("id_device"),rs.getInt("device_type"));
             }
 
         } catch (SQLException ex) {
