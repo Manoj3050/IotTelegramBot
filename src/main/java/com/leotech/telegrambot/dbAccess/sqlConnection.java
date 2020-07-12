@@ -647,19 +647,19 @@ public class sqlConnection {
         }
     }
 
-    public static List<String> getAllDevicesWithAlarm() {
-        List<String> devices = new ArrayList<>();
+    public static  Map<String,Integer> getAllDevicesWithAlarm() {
+        Map<String,Integer> devices = new HashMap<String, Integer>();
         ResultSet rs = null;
         PreparedStatement pstmt = null;
         Connection conn = null;
-        String sql = "SELECT id_device FROM device_table WHERE alarm_on = ?";
+        String sql = "SELECT id_device,device_type FROM device_table WHERE alarm_on = ?";
         try {
             conn = dataSource.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setBoolean(1, true);
             rs = pstmt.executeQuery();
             while (rs.next()) {
-                devices.add(rs.getString("id_device"));
+                devices.put(rs.getString("id_device"),rs.getInt("device_type"));
             }
 
         } catch (SQLException ex) {
